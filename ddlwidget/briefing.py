@@ -12,7 +12,7 @@ from . import theme
 from .dialogs import SHADOW, GlassDialog
 from .models import DDL, WEEKDAY_CN
 from .theme import font
-from .vector_icons import draw_icon
+from .icon_render import draw_icon
 
 
 def _day_label(target: date, today: date) -> str:
@@ -108,10 +108,11 @@ class _Banner(QWidget):
         painter.setBrush(grad)
         painter.drawRoundedRect(rect.adjusted(0.5, 0.5, -0.5, -0.5), 12, 12)
 
+        icon_size = 19.0
         draw_icon(
             painter,
             "warning",
-            QRectF(16, self.height() / 2 - 10, 20, 20),
+            QRectF(16, self.height() / 2 - icon_size / 2, icon_size, icon_size),
             QColor(255, 255, 255, 238),
             stroke=2.0,
         )

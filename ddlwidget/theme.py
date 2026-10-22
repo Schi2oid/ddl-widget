@@ -35,6 +35,8 @@ SHADOW = QColor(0, 0, 0, 160)
 RADIUS = 18
 
 # --- 字体 -------------------------------------------------------------
+ICON_FAMILY = "Segoe Fluent Icons"
+
 import sys as _sys
 
 if _sys.platform == "darwin":
@@ -53,6 +55,42 @@ def font(size: int, weight: int = 400, letter_spacing: float = 0.0) -> QFont:
     if letter_spacing:
         f.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, letter_spacing)
     return f
+
+
+def icon_font(size: int) -> QFont:
+    f = QFont(ICON_FAMILY)
+    f.setPixelSize(max(8, int(size)))
+    f.setStyleStrategy(QFont.StyleStrategy.PreferAntialias)
+    return f
+
+
+# Segoe Fluent Icons / MDL2 码位
+ICONS = {
+    "add": "\ue710",
+    "refresh": "\ue72c",
+    "lock": "\ue72e",
+    "unlock": "\ue785",
+    "settings": "\ue713",
+    "close": "\ue8bb",
+    "pin": "\ue718",
+    "unpin": "\ue77a",
+    "edit": "\ue70f",
+    "delete": "\ue74d",
+    "check": "\ue73e",
+    "calendar": "\ue787",
+    "clock": "\ue823",
+    "warning": "\ue7ba",
+    "info": "\ue946",
+    "chevron_down": "\ue70d",
+    "chevron_up": "\ue70e",
+    "more": "\ue712",
+    "open": "\ue8e5",
+    "folder": "\ue8b7",
+    "drag": "\ue76f",
+    "sync": "\ue895",
+    "sun": "\ue706",
+    "undo": "\ue7a7",
+}
 
 
 def rgba(hex_color: str, alpha: float) -> QColor:

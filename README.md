@@ -234,7 +234,8 @@ ddlwidget/
   db.py                 SQLite 持久层与合并规则
   sync.py               pku3b 调用、输出解析、入库
   sysutil.py            平台层：自启（注册表 / LaunchAgent）、层级、单实例、通知
-  vector_icons.py       矢量图标（不依赖系统字体，Windows / macOS 通用）
+  icon_render.py        图标后端：Windows 用 Segoe Fluent Icons 字形，其它平台回退到矢量
+  vector_icons.py       矢量图标（macOS / 缺少字形字体时使用）
   paths.py / settings.py / icons.py
 docs/screenshots/       README 用的截图
 dev/                    开发与自检脚本

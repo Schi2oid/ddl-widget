@@ -20,7 +20,7 @@ from PySide6.QtWidgets import QAbstractButton, QSizePolicy, QWidget
 from . import theme, tips
 from .models import DDL, GROUP_COLOR, GROUP_LABEL
 from .theme import font, rgba
-from .vector_icons import draw_icon
+from .icon_render import draw_icon
 
 ROW_HEIGHT = 64
 RIGHT_BLOCK = 116
@@ -492,10 +492,16 @@ class EmptyState(QWidget):
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(255, 255, 255, 10))
         painter.drawEllipse(circle)
+        icon_size = 21.0
         draw_icon(
             painter,
             "check",
-            circle.adjusted(14, 14, -14, -14),
+            QRectF(
+                circle.center().x() - icon_size / 2,
+                circle.center().y() - icon_size / 2,
+                icon_size,
+                icon_size,
+            ),
             rgba(theme.ACCENT, 0.9),
             stroke=2.0,
         )
