@@ -75,10 +75,10 @@ def _refresh(p: QPainter) -> None:
 
 def _undo(p: QPainter) -> None:
     path = QPainterPath()
-    path.moveTo(18.4, 19.6)
-    path.cubicTo(18.4, 10.0, 11.2, 6.6, 5.4, 9.2)
+    path.moveTo(18.6, 20.0)
+    path.cubicTo(18.6, 10.4, 11.6, 6.2, 5.2, 8.6)
     p.drawPath(path)
-    _arrow(p, 5.4, 9.2, 165, 6.8)
+    _arrow(p, 5.2, 8.6, 162, 7.0)
 
 
 def _lock_body(p: QPainter) -> None:
@@ -111,12 +111,12 @@ def _unlock(p: QPainter) -> None:
     p.setBrush(Qt.BrushStyle.NoBrush)
 
 
-def _gear_path(cx: float, cy: float, teeth: int = 7) -> QPainterPath:
-    r_root, r_tip = 5.6, 8.9
+def _gear_path(cx: float, cy: float, teeth: int = 8) -> QPainterPath:
+    r_root, r_tip = 6.0, 8.8
     path = QPainterPath()
     step = math.tau / teeth
-    half_tip = step * 0.23
-    half_root = step * 0.33
+    half_tip = step * 0.17
+    half_root = step * 0.26
     for index in range(teeth):
         angle = index * step
         points = (
@@ -138,7 +138,7 @@ def _gear_path(cx: float, cy: float, teeth: int = 7) -> QPainterPath:
 
 
 def _settings(p: QPainter) -> None:
-    p.drawPath(_gear_path(12.0, 12.0, teeth=7))
+    p.drawPath(_gear_path(12.0, 12.0, teeth=8))
     p.setBrush(Qt.BrushStyle.NoBrush)
 
 
