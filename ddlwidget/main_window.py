@@ -334,20 +334,20 @@ class MainWindow(QWidget):
         buttons.setContentsMargins(0, 0, 0, 0)
         buttons.setSpacing(3)
 
-        self._btn_sync = IconButton("refresh", 27, 14, "立即同步教学网")
+        self._btn_sync = IconButton("refresh", 27, 15, "立即同步教学网")
         self._btn_sync.clicked.connect(self.sync_requested.emit)
         self._btn_reset = IconButton(
-            "undo", 27, 14, "把教学网上未提交的作业全部恢复为待办（会解除手动勾选）"
+            "undo", 27, 15, "把教学网上未提交的作业全部恢复为待办（会解除手动勾选）"
         )
         self._btn_reset.clicked.connect(self.reset_requested.emit)
-        self._btn_add = IconButton("add", 27, 15, "添加 DDL")
+        self._btn_add = IconButton("add", 27, 16, "添加 DDL")
         self._btn_add.clicked.connect(self.add_item)
-        self._btn_lock = IconButton("unlock", 27, 13, "锁定位置")
+        self._btn_lock = IconButton("unlock", 27, 15, "锁定位置")
         self._btn_lock.setCheckable(True)
         self._btn_lock.clicked.connect(self._toggle_lock)
-        self._btn_settings = IconButton("settings", 27, 13, "设置")
+        self._btn_settings = IconButton("settings", 27, 15, "设置")
         self._btn_settings.clicked.connect(self.open_settings)
-        self._btn_close = IconButton("close", 27, 11, "隐藏到托盘")
+        self._btn_close = IconButton("close", 27, 13, "隐藏到托盘")
         self._btn_close.clicked.connect(self._on_close_clicked)
 
         for btn in (
