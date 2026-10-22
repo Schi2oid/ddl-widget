@@ -15,11 +15,13 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from . import paths
 from .db import Database
 from .models import DDL
 
@@ -78,15 +80,42 @@ def strip_ansi(text: str) -> str:
     return ANSI_RE.sub("", text)
 
 
+def _extra_search_dirs() -> list[Path]:
+    """macOS / Linux 下 Finder 或 LaunchAgent 启动时 PATH 往往缺失常见工具目录。"""
+    home = Path.home()
+    dirs = [
+        paths.project_root(),
+        home / ".cargo" / "bin",
+        home / ".local" / "bin",
+        home / "bin",
+        Path("/opt/homebrew/bin"),
+        Path("/usr/local/bin"),
+    ]
+    return [d for d in dirs if d.exists()]
+
+
+def _augmented_path_env() -> str:
+    current = [p for p in os.environ.get("PATH", "").split(os.pathsep) if p]
+    seen = set(current)
+    for d in _extra_search_dirs():
+        s = str(d)
+        if s not in seen:
+            current.append(s)
+            seen.add(s)
+    return os.pathsep.join(current)
+
+
 def resolve_executable(exe: str) -> str | None:
     """把配置里的路径解析成可执行文件（也支持 PATH 上的命令名，方便 macOS）。"""
     if not exe:
         return None
     path = Path(exe).expanduser()
-    if path.exists():
+    if path.is_file():
         return str(path)
     if os.sep not in exe and (os.altsep is None or os.altsep not in exe):
-        return shutil.which(exe)
+        found = shutil.which(exe, path=_augmented_path_env())
+        if found:
+            return found
     return None
 
 
@@ -96,18 +125,26 @@ def run_pku3b(exe: str, args: list[str], timeout: int = 180) -> tuple[bool, str,
     if resolved is None:
         return False, "", f"找不到 pku3b：{exe}", 0.0
     started = time.monotonic()
+    kwargs: dict = {}
+    if sys.platform.startswith("win"):
+        kwargs["creationflags"] = CREATE_NO_WINDOW
+    env = {
+        **os.environ,
+        "PATH": _augmented_path_env(),
+        "RUST_LOG": os.environ.get("DDL_RUST_LOG", "warn"),
+    }
     try:
         proc = subprocess.run(
             [resolved, *args],
             capture_output=True,
             timeout=timeout,
             stdin=subprocess.DEVNULL,
-            creationflags=CREATE_NO_WINDOW,
-            env={**os.environ, "RUST_LOG": os.environ.get("DDL_RUST_LOG", "warn")},
+            env=env,
+            **kwargs,
         )
     except subprocess.TimeoutExpired:
         return False, "", f"pku3b 执行超时（{timeout}s）", time.monotonic() - started
-    except OSError as exc:
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
         return False, "", f"无法启动 pku3b：{exc}", time.monotonic() - started
 
     duration = time.monotonic() - started

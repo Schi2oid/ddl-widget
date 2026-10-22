@@ -40,7 +40,7 @@ ICON_FAMILY = "Segoe Fluent Icons"
 import sys as _sys
 
 if _sys.platform == "darwin":
-    UI_FAMILIES = ["SF Pro Text", "PingFang SC", "Helvetica Neue"]
+    UI_FAMILIES = [".AppleSystemUIFont", "PingFang SC", "Helvetica Neue"]
 elif _sys.platform.startswith("win"):
     UI_FAMILIES = ["Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI"]
 else:
