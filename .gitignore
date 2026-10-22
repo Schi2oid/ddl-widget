@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 运行期数据（正常情况下落在 %APPDATA%\DDLWidget）
+data/
+.tmp/
+*.log
+
+# 开发产物
+dev/shots/
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+desktop.ini
