@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from ddlwidget import winutil
+from ddlwidget import sysutil
 from ddlwidget.db import Database
 from ddlwidget.models import URGENT_NONE, URGENT_TODAY, URGENT_WEEK
 from ddlwidget.sync import sync_now
@@ -92,32 +92,32 @@ def test_sync_fail() -> None:
 
 def test_autostart() -> None:
     print("[开机自启注册表]")
-    original = winutil.autostart_enabled()
+    original = sysutil.autostart_enabled()
     try:
-        ok, message = winutil.set_autostart(True)
+        ok, message = sysutil.set_autostart(True)
         if not ok:
             print(f"  skip 当前环境不允许写注册表：{message}")
-            print(f"       待写入命令: {winutil.launch_command()}")
+            print(f"       待写入命令: {sysutil.launch_command()}")
             return
         check("写入成功", ok)
-        enabled = winutil.autostart_enabled()
+        enabled = sysutil.autostart_enabled()
 
         import winreg
 
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, winutil.RUN_KEY) as key:
-            value, _ = winreg.QueryValueEx(key, winutil.RUN_VALUE)
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, sysutil.RUN_KEY) as key:
+            value, _ = winreg.QueryValueEx(key, sysutil.RUN_VALUE)
         print(f"       注册表值: {value}")
         check("写入后已启用", enabled)
         check("启动命令含 run.pyw", "run.pyw" in value, value)
         check("启动命令用的是 pythonw", "pythonw" in value.lower(), value)
 
-        winutil.set_autostart(False)
-        check("关闭后已移除", not winutil.autostart_enabled())
+        sysutil.set_autostart(False)
+        check("关闭后已移除", not sysutil.autostart_enabled())
     finally:
         if original:
-            winutil.set_autostart(True)
+            sysutil.set_autostart(True)
         else:
-            winutil.set_autostart(False)
+            sysutil.set_autostart(False)
 
 
 if __name__ == "__main__":

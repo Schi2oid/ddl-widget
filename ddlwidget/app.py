@@ -11,7 +11,7 @@ from PySide6.QtCore import QObject, QThread, QTimer, Signal
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
-from . import icons, paths, sync, theme, tips, winutil
+from . import icons, paths, sync, theme, tips, sysutil
 from .briefing import BriefingDialog
 from .db import Database
 from .dialogs import EditorDialog, SettingsDialog
@@ -124,11 +124,10 @@ class App(QObject):
         self._refresh_tooltip()
 
         if not result.ok:
-            self.tray.showMessage(
+            self._notify(
                 "同步失败",
                 result.message or "无法获取教学网作业",
-                QSystemTrayIcon.MessageIcon.Warning,
-                6000,
+                warning=True,
             )
             return
 
@@ -177,12 +176,11 @@ class App(QObject):
             self.db.mark_notified(item.id, today_str)
 
         if urgent:
-            self.tray.showMessage(
+            self._notify(
                 "今日 DDL 提醒",
                 "今天有 %d 项作业截止：" % len(urgent)
                 + "、".join(i.title for i in urgent[:3]),
-                QSystemTrayIcon.MessageIcon.Warning,
-                10_000,
+                warning=True,
             )
 
         dialog = BriefingDialog(items, None)
@@ -249,13 +247,21 @@ class App(QObject):
         self.show_widget()
         self.window.add_item()
 
-    def _notify(self, title: str, body: str) -> None:
-        self.tray.showMessage(title, body, QSystemTrayIcon.MessageIcon.Information, 3000)
+    def _notify(self, title: str, body: str, warning: bool = False) -> None:
+        """系统通知：macOS 走 osascript，Windows 用托盘气泡。"""
+        if sysutil.system_notify(title, body):
+            return
+        icon = (
+            QSystemTrayIcon.MessageIcon.Warning
+            if warning
+            else QSystemTrayIcon.MessageIcon.Information
+        )
+        self.tray.showMessage(title, body, icon, 6000)
 
     def toggle_autostart(self, checked: bool) -> None:
-        ok, message = winutil.set_autostart(checked)
+        ok, message = sysutil.set_autostart(checked)
         if not ok:
-            self.tray.showMessage("开机自启设置失败", message, QSystemTrayIcon.MessageIcon.Warning, 6000)
+            self._notify("开机自启设置失败", message, warning=True)
         else:
             self.settings.set("autostart", checked)
         self.tray.refresh()
@@ -325,9 +331,16 @@ def _signal_existing_instance() -> bool:
     return False
 
 
+def _wake_existing() -> None:
+    """已有实例在跑：叫它把窗口显示出来，然后本进程退出。"""
+    if not _signal_existing_instance():
+        sysutil.broadcast_show()
+    logging.info("已有实例在运行，本次启动退出并唤醒旧窗口")
+
+
 def main(argv: list[str] | None = None) -> int:
     setup_logging()
-    winutil.set_app_user_model_id()
+    sysutil.set_app_user_model_id()
 
     qapp = QApplication(sys.argv)
     qapp.setQuitOnLastWindowClosed(False)
@@ -336,16 +349,18 @@ def main(argv: list[str] | None = None) -> int:
     qapp.setApplicationDisplayName("DDL · 作业截止日")
     qapp.setWindowIcon(icons.app_icon())
 
-    if not winutil.acquire_single_instance():
-        # 已有实例：先尝试管道唤醒，失败则用窗口消息广播
-        if not _signal_existing_instance():
-            winutil.broadcast_show()
-        logging.info("已有实例在运行，本次启动退出并唤醒旧窗口")
+    if not sysutil.acquire_single_instance():
+        _wake_existing()
         return 0
 
     server = QLocalServer(qapp)
     QLocalServer.removeServer(SERVER_NAME)
-    if not server.listen(SERVER_NAME):
+    listening = server.listen(SERVER_NAME)
+    if not listening:
+        if not sysutil.IS_WINDOWS:
+            # macOS / Linux 上命名管道（Unix socket）是可靠的，连不上说明已有实例
+            _wake_existing()
+            return 0
         logging.debug("单实例管道不可用，已退化为窗口消息唤醒")
 
     tips.TipController(qapp)   # 用自绘提示替换系统 tooltip（避免黑色阴影窗）

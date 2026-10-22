@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -77,15 +78,27 @@ def strip_ansi(text: str) -> str:
     return ANSI_RE.sub("", text)
 
 
+def resolve_executable(exe: str) -> str | None:
+    """把配置里的路径解析成可执行文件（也支持 PATH 上的命令名，方便 macOS）。"""
+    if not exe:
+        return None
+    path = Path(exe).expanduser()
+    if path.exists():
+        return str(path)
+    if os.sep not in exe and (os.altsep is None or os.altsep not in exe):
+        return shutil.which(exe)
+    return None
+
+
 def run_pku3b(exe: str, args: list[str], timeout: int = 180) -> tuple[bool, str, str, float]:
     """执行 pku3b，返回 (是否成功, stdout 文本, stderr 文本, 耗时秒)。"""
-    path = Path(exe)
-    if not path.exists():
+    resolved = resolve_executable(exe)
+    if resolved is None:
         return False, "", f"找不到 pku3b：{exe}", 0.0
     started = time.monotonic()
     try:
         proc = subprocess.run(
-            [str(exe), *args],
+            [resolved, *args],
             capture_output=True,
             timeout=timeout,
             stdin=subprocess.DEVNULL,

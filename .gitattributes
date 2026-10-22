@@ -1,0 +1,11 @@
+* text=auto
+
+# 启动脚本要能在各自平台上直接跑，锁死换行符
+*.command text eol=lf
+*.sh      text eol=lf
+*.vbs     text eol=crlf
+*.bat     text eol=crlf
+*.ps1     text eol=crlf
+
+*.png binary
+*.ico binary

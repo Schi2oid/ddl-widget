@@ -5,7 +5,7 @@ from __future__ import annotations
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
-from . import icons, theme, winutil
+from . import icons, theme, sysutil
 
 
 class TrayIcon(QSystemTrayIcon):
@@ -33,7 +33,7 @@ class TrayIcon(QSystemTrayIcon):
 
         self._act_autostart = QAction("开机自动启动", menu)
         self._act_autostart.setCheckable(True)
-        self._act_autostart.setChecked(winutil.autostart_enabled())
+        self._act_autostart.setChecked(sysutil.autostart_enabled())
         self._act_autostart.triggered.connect(controller.toggle_autostart)
         menu.addAction(self._act_autostart)
 
@@ -61,7 +61,7 @@ class TrayIcon(QSystemTrayIcon):
 
     def refresh(self) -> None:
         self._act_toggle.setText("隐藏小组件" if self._c.window_visible() else "显示小组件")
-        self._act_autostart.setChecked(winutil.autostart_enabled())
+        self._act_autostart.setChecked(sysutil.autostart_enabled())
 
     def set_busy(self, busy: bool) -> None:
         self._act_sync.setEnabled(not busy)

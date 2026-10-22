@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from ddlwidget.winutil import sanitize_dll_path  # noqa: E402
+from ddlwidget.sysutil import sanitize_dll_path  # noqa: E402
 
 sanitize_dll_path()
 

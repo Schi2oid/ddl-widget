@@ -4,6 +4,7 @@
 > 也支持手动添加自己的截止事项。
 
 ![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D6?logo=windows&logoColor=white)
+![macOS](https://img.shields.io/badge/macOS-12%2B-000000?logo=apple&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![PySide6](https://img.shields.io/badge/PySide6-6.x-41CD52?logo=qt&logoColor=white)
 ![无边框](https://img.shields.io/badge/UI-全自绘-7C8CFF)
@@ -46,9 +47,9 @@
 
 | 依赖 | 说明 |
 |---|---|
-| Windows 10 / 11 | 用了注册表自启、系统托盘、DWM 透明窗口 |
+| Windows 10 / 11 或 macOS 12+ | 用到了系统托盘、透明窗口、开机自启 |
 | Python 3.10+ | 需要 PySide6 |
-| [pku3b](https://github.com/sshwy/pku3b) | 爬取教学网，Rust 编译的单文件 exe |
+| [pku3b](https://github.com/sshwy/pku3b) | 爬取教学网，Rust 编译的单文件可执行文件 |
 | PySide6 | `pip install PySide6` |
 
 ### 1. 装 pku3b 并登录一次
@@ -69,12 +70,19 @@ pip install PySide6
 
 ### 3. 启动
 
-双击 **`启动小组件.vbs`**（无控制台窗口）。
+**Windows**：双击 `启动小组件.vbs`（无控制台窗口）。
+它默认用 `D:\Softwares\anaconda\pythonw.exe`，找不到就退回 PATH 上的 `pythonw.exe`；
+Python 装在别处就改一下文件里的 `pythonw` 变量。
 
-它默认用 `D:\Softwares\anaconda\pythonw.exe`，找不到就退回 PATH 上的 `pythonw.exe`。
-如果你的 Python 装在别处，改一下这个文件里的 `pythonw` 变量就行。
+**macOS**：双击 `启动小组件.command`。第一次如果提示没有执行权限：
 
-也可以直接 `python run.pyw` 启动（会带控制台，适合调试）。
+```bash
+chmod +x 启动小组件.command
+```
+
+也可以直接 `python run.pyw` / `python3 run.pyw` 启动（会带控制台，适合调试）。
+
+> macOS 上 pku3b 装好后填 `pku3b` 即可（程序会走 PATH 查找），或者填绝对路径。
 
 首次启动会自动同步一次；右上角 **⟳** 随时手动同步，**＋** 添加手动 DDL。
 
@@ -147,11 +155,13 @@ pip install PySide6
 
 ## 数据与配置
 
-| 内容 | 位置 |
-|---|---|
-| 数据库 / 设置 / 日志 | `%APPDATA%\DDLWidget\` （`ddl.db`、`settings.json`、`app.log`） |
-| pku3b 配置 | `%APPDATA%\sshwy\pku3b\config\cfg.toml` |
-| pku3b 缓存 | `%LOCALAPPDATA%\sshwy\pku3b\cache`（可能很大，用 `pku3b cache clean` 清） |
+| 内容 | Windows | macOS |
+|---|---|---|
+| 数据库 / 设置 / 日志 | `%APPDATA%\DDLWidget\` | `~/Library/Application Support/DDLWidget/` |
+| pku3b 配置 | `%APPDATA%\sshwy\pku3b\config\cfg.toml` | `~/Library/Application Support/org.sshwy.pku3b/` |
+| pku3b 缓存 | `%LOCALAPPDATA%\sshwy\pku3b\cache` | `~/Library/Caches/org.sshwy.pku3b/` |
+
+数据库目录下是 `ddl.db`、`settings.json`、`app.log`。
 
 数据目录不可写时会自动降级到程序目录下的 `data/`。
 想从头开始就删掉 `%APPDATA%\DDLWidget\`；想重放每日简报就删掉 `ddl.db` 里 `meta` 表的 `last_daily_popup_date`。
@@ -162,6 +172,13 @@ pip install PySide6
 ---
 
 ## 常见问题
+
+**macOS 上双击 .command 没反应 / 提示无法打开**
+第一次需要给执行权限：`chmod +x 启动小组件.command`；
+若被 Gatekeeper 拦住，在「系统设置 → 隐私与安全性」里点「仍要打开」。
+
+**macOS 上托盘/通知不显示**
+Qt 的托盘图标在菜单栏右侧；通知需要在「系统设置 → 通知」里允许（osascript 首次会请求权限）。
 
 **启动报 `DLL load failed while importing QtCore`**
 第三方软件（典型是 MikTeX）自带的 `Qt6Core.dll` 会抢在 PySide6 前面被加载。
@@ -201,7 +218,8 @@ python dev\live_shot.py            # 真实平台截图（会短暂显示窗口�
 
 ```text
 run.pyw                 入口（先修 Qt DLL 搜索路径，再启动）
-启动小组件.vbs           无控制台启动器
+启动小组件.vbs           Windows 无控制台启动器
+启动小组件.command       macOS 启动器
 ddlwidget/
   app.py                控制器：单实例、同步线程、每日调度、托盘接线
   main_window.py        无边框玻璃卡片主窗、贴边收纳、FLIP 重排
@@ -215,7 +233,8 @@ ddlwidget/
   models.py             DDL 模型、紧急度、倒计时文案
   db.py                 SQLite 持久层与合并规则
   sync.py               pku3b 调用、输出解析、入库
-  winutil.py            DLL 路径修复、自启注册表、窗口层级、单实例
+  sysutil.py            平台层：自启（注册表 / LaunchAgent）、层级、单实例、通知
+  vector_icons.py       矢量图标（不依赖系统字体，Windows / macOS 通用）
   paths.py / settings.py / icons.py
 docs/screenshots/       README 用的截图
 dev/                    开发与自检脚本
@@ -229,7 +248,11 @@ tests/                  自检脚本（无需 pytest）
 - 只同步当前学期
 - 首次见到就已逾期的作业拿不到绝对时间
 - 每日简报只覆盖未来 7 天
-- 仅支持 Windows（注册表自启、原生 Toast、DWM 透明窗口）
+- **平台差异**：Windows 支持完整；macOS 用 LaunchAgent 自启、系统通知走 osascript，
+  没有「贴桌面层」（那是 Windows 的 HWND_BOTTOM 语义），只能置顶 / 普通
+- **macOS 版本未经实机验证**：代码按 macOS 分支写好（Tool 窗口常驻属性、Unix socket 单实例、
+  LaunchAgent 自启、Apple 系统字体回退），但开发者手上只有 Windows，没有真机跑过。
+  遇到问题欢迎提 issue
 
 ## 致谢
 

@@ -8,7 +8,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from ddlwidget.winutil import sanitize_dll_path  # noqa: E402
+from ddlwidget.sysutil import sanitize_dll_path  # noqa: E402
 
 _removed = sanitize_dll_path()
 

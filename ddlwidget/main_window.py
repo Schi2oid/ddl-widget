@@ -5,8 +5,15 @@ from __future__ import annotations
 import ctypes
 import os
 import time
-from ctypes import wintypes
 from datetime import datetime
+
+try:  # ctypes.wintypes 在非 Windows 上不可用
+    from ctypes import wintypes
+
+    _HAS_WINTYPES = True
+except Exception:  # noqa: BLE001
+    wintypes = None
+    _HAS_WINTYPES = False
 
 from PySide6.QtCore import (
     QEasingCurve,
@@ -41,12 +48,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import theme, winutil
+from . import theme, sysutil
 from . import tips as tips_ref
 from .fx import FxOverlay, solid_card
 from .dialogs import EditorDialog, SettingsDialog
 from .models import DDL, GROUP_COLOR, GROUP_LABEL, group_items
-from .theme import ICONS, font, icon_font, rgba
+from .theme import font, rgba
 from .widgets import (
     ROW_HEIGHT,
     DDLRow,
@@ -104,16 +111,17 @@ def _done_order(item) -> tuple:
     return (1, 0.0, due, item.title)
 
 
-class _MSG(ctypes.Structure):
-    _fields_ = [
-        ("hwnd", wintypes.HWND),
-        ("message", wintypes.UINT),
-        ("wParam", wintypes.WPARAM),
-        ("lParam", wintypes.LPARAM),
-        ("time", wintypes.DWORD),
-        ("pt_x", wintypes.LONG),
-        ("pt_y", wintypes.LONG),
-    ]
+class _MSG(ctypes.Structure if _HAS_WINTYPES else object):
+    if _HAS_WINTYPES:
+        _fields_ = [
+            ("hwnd", wintypes.HWND),
+            ("message", wintypes.UINT),
+            ("wParam", wintypes.WPARAM),
+            ("lParam", wintypes.LPARAM),
+            ("time", wintypes.DWORD),
+            ("pt_x", wintypes.LONG),
+            ("pt_y", wintypes.LONG),
+        ]
 
 
 class ResizeGrip(QWidget):
@@ -254,6 +262,9 @@ class MainWindow(QWidget):
             )
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        if sysutil.IS_MAC:
+            # macOS 上 Qt.Tool 窗口在 App 失焦时会自动隐藏，桌面挂件必须常驻
+            self.setAttribute(Qt.WidgetAttribute.WA_MacAlwaysShowToolWindow, True)
         self.setFixedWidth(WIDTH)
         self.setWindowTitle("DDL · 作业截止日")
 
@@ -839,9 +850,8 @@ class MainWindow(QWidget):
     # 窗口层级 / 位置
     # ==================================================================
     def apply_window_mode(self) -> None:
-        top = bool(self.settings.get("always_on_top")) and not bool(
-            self.settings.get("desktop_layer")
-        )
+        desktop = bool(self.settings.get("desktop_layer")) and sysutil.supports_desktop_layer()
+        top = bool(self.settings.get("always_on_top")) and not desktop
         visible = self.isVisible()
         geo = self.geometry()
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool
@@ -853,8 +863,8 @@ class MainWindow(QWidget):
             self.show()
         if self._edge:
             self.move(self._dock_x(self._edge, self._collapsed), self.y())
-        if self.settings.get("desktop_layer"):
-            winutil.set_topmost(int(self.winId()), False)
+        if desktop:
+            sysutil.set_topmost(int(self.winId()), False)
             self._bottom_timer.start()
             self._enforce_bottom()
         else:
@@ -863,12 +873,14 @@ class MainWindow(QWidget):
     def _enforce_bottom(self) -> None:
         if not self.settings.get("desktop_layer") or not self.isVisible():
             return
+        if not sysutil.supports_desktop_layer():
+            return
         if self.isActiveWindow():
             return
         if self.geometry().contains(QCursor.pos()):
             # 鼠标正停在窗口上时不要往下压，否则会用着用着沉到别的窗口后面
             return
-        winutil.send_to_bottom(int(self.winId()))
+        sysutil.send_to_bottom(int(self.winId()))
 
     def _restore_position(self) -> None:
         area = self._available_rect()
@@ -1263,7 +1275,7 @@ class MainWindow(QWidget):
             return super().nativeEvent(eventType, message)
         try:
             msg = _MSG.from_address(int(message))
-            message_id = winutil.show_message_id()
+            message_id = sysutil.show_message_id()
             if message_id and msg.message == message_id:
                 self.showNormal()
                 self.raise_()

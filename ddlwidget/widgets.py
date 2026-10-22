@@ -19,7 +19,8 @@ from PySide6.QtWidgets import QAbstractButton, QSizePolicy, QWidget
 
 from . import theme, tips
 from .models import DDL, GROUP_COLOR, GROUP_LABEL
-from .theme import ICONS, font, icon_font, rgba
+from .theme import font, rgba
+from .vector_icons import draw_icon
 
 ROW_HEIGHT = 64
 RIGHT_BLOCK = 116
@@ -38,7 +39,7 @@ class IconButton(QAbstractButton):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self._glyph = ICONS.get(icon_name, icon_name)
+        self._icon_name = str(icon_name)
         self._glyph_size = glyph_size
         self._hover = 0.0
         self._rotation = 0.0
@@ -87,7 +88,7 @@ class IconButton(QAbstractButton):
         self.update()
 
     def set_glyph(self, icon_name: str) -> None:
-        self._glyph = ICONS.get(icon_name, icon_name)
+        self._icon_name = str(icon_name)
         self.update()
 
     def set_rotation(self, degrees: float) -> None:
@@ -116,17 +117,11 @@ class IconButton(QAbstractButton):
         base = self._active_color if (self._hover > 0.4 or self._checked_tint) else self._color
         if not self.isEnabled():
             base = QColor(theme.TEXT_DISABLED)
-        painter.setPen(QPen(base))
-        painter.setFont(icon_font(self._glyph_size))
-        if abs(self._rotation) > 0.01:
-            painter.save()
-            painter.translate(self.width() / 2, self.height() / 2)
-            painter.rotate(self._rotation)
-            painter.translate(-self.width() / 2, -self.height() / 2)
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self._glyph)
-            painter.restore()
-        else:
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self._glyph)
+        size = float(self._glyph_size)
+        icon_rect = QRectF(
+            (self.width() - size) / 2, (self.height() - size) / 2, size, size
+        )
+        draw_icon(painter, self._icon_name, icon_rect, base, 2.2, self._rotation)
 
     def sizeHint(self) -> QSize:  # noqa: N802
         return self.size()
@@ -497,9 +492,13 @@ class EmptyState(QWidget):
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(255, 255, 255, 10))
         painter.drawEllipse(circle)
-        painter.setPen(QPen(rgba(theme.ACCENT, 0.85)))
-        painter.setFont(icon_font(21))
-        painter.drawText(circle, Qt.AlignmentFlag.AlignCenter, ICONS["check"])
+        draw_icon(
+            painter,
+            "check",
+            circle.adjusted(14, 14, -14, -14),
+            rgba(theme.ACCENT, 0.9),
+            stroke=2.0,
+        )
 
         painter.setFont(font(14, 600))
         painter.setPen(QColor(theme.TEXT_SECONDARY))

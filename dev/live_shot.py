@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from ddlwidget.winutil import sanitize_dll_path  # noqa: E402
+from ddlwidget.sysutil import sanitize_dll_path  # noqa: E402
 
 print("stripped from PATH:", sanitize_dll_path())
 os.environ.setdefault("DDL_WIDGET_DATA", str(ROOT / ".tmp" / "demo"))

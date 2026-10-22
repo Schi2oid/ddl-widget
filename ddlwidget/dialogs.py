@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import paths, theme, winutil
+from . import paths, theme, sysutil
 from .models import DDL, GROUP_COLOR
 from .theme import font
 from .widgets import IconButton, ToggleSwitch
@@ -307,7 +307,7 @@ class SettingsDialog(GlassDialog):
 
         # 行为
         self._root.addWidget(_section("系统"))
-        self._autostart = self._toggle_row("开机自动启动", winutil.autostart_enabled())
+        self._autostart = self._toggle_row("开机自动启动", sysutil.autostart_enabled())
 
         # 外观
         self._root.addWidget(_section("外观"))
@@ -316,13 +316,19 @@ class SettingsDialog(GlassDialog):
         mode_row.addWidget(_field_label("窗口层级"), 1)
         self._mode = QComboBox(self)
         self._mode.setFont(font(12, 400))
-        self._mode.addItems(["置顶显示", "普通窗口", "贴桌面层（置于底层）"])
-        if settings.get("desktop_layer"):
-            self._mode.setCurrentIndex(2)
-        elif settings.get("always_on_top"):
-            self._mode.setCurrentIndex(0)
-        else:
-            self._mode.setCurrentIndex(1)
+        self._mode_keys = [("top", "置顶显示"), ("normal", "普通窗口")]
+        if sysutil.supports_desktop_layer():
+            self._mode_keys.append(("desktop", "贴桌面层（置于底层）"))
+        self._mode.addItems([label for _key, label in self._mode_keys])
+        current = (
+            "desktop"
+            if settings.get("desktop_layer") and sysutil.supports_desktop_layer()
+            else ("top" if settings.get("always_on_top") else "normal")
+        )
+        for index, (key, _label) in enumerate(self._mode_keys):
+            if key == current:
+                self._mode.setCurrentIndex(index)
+                break
         self._mode.setFixedWidth(190)
         mode_row.addWidget(self._mode, 0)
         self._root.addLayout(mode_row)
@@ -418,11 +424,11 @@ class SettingsDialog(GlassDialog):
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(paths.app_data_dir())))
 
     def _on_save(self) -> None:
-        mode = self._mode.currentIndex()
+        mode = self._mode_keys[self._mode.currentIndex()][0]
         autostart = self._autostart.isChecked()
-        current = winutil.autostart_enabled()
+        current = sysutil.autostart_enabled()
         if autostart != current:
-            ok, message = winutil.set_autostart(autostart)
+            ok, message = sysutil.set_autostart(autostart)
             if not ok:
                 self._error.setText(message)
                 self._error.show()
@@ -432,8 +438,8 @@ class SettingsDialog(GlassDialog):
             "sync_on_start": self._sync_on_start.isChecked(),
             "daily_briefing": self._daily.isChecked(),
             "autostart": autostart,
-            "always_on_top": mode == 0,
-            "desktop_layer": mode == 2,
+            "always_on_top": mode == "top",
+            "desktop_layer": mode == "desktop",
             "opacity": round(self._opacity.value() / 100.0, 2),
             "show_completed": self._show_completed.isChecked(),
             "edge_dock_enabled": self._edge_dock.isChecked(),
