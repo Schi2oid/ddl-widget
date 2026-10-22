@@ -222,10 +222,10 @@ class App(QObject):
         self.tray.refresh()
 
     def window_visible(self) -> bool:
-        return self.window.isVisible()
+        return self.window.is_effectively_visible()
 
     def toggle_window(self) -> None:
-        if self.window.isVisible() and not self.window.isMinimized():
+        if self.window.is_effectively_visible():
             self.hide_widget()
         else:
             self.show_widget()

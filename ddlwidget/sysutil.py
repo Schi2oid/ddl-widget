@@ -98,6 +98,20 @@ def _launch_agent_path() -> Path:
 def _launch_agent_plist() -> str:
     entry = paths.project_root() / "run.pyw"
     log_dir = paths.app_data_dir()
+    home = Path.home()
+    env_path = os.pathsep.join(
+        [
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            str(home / ".cargo" / "bin"),
+            str(home / ".local" / "bin"),
+            str(home / "bin"),
+            "/usr/bin",
+            "/bin",
+            "/usr/sbin",
+            "/sbin",
+        ]
+    )
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
@@ -110,6 +124,9 @@ def _launch_agent_plist() -> str:
         "    <string>--autostart</string>\n"
         "  </array>\n"
         f"  <key>WorkingDirectory</key><string>{xml_escape(str(entry.parent))}</string>\n"
+        "  <key>EnvironmentVariables</key>\n  <dict>\n"
+        f"    <key>PATH</key><string>{xml_escape(env_path)}</string>\n"
+        "  </dict>\n"
         "  <key>RunAtLoad</key><true/>\n"
         "  <key>KeepAlive</key><false/>\n"
         f"  <key>StandardOutPath</key><string>"
@@ -320,11 +337,11 @@ def system_notify(title: str, body: str) -> bool:
         f"with title {json.dumps(title, ensure_ascii=False)}"
     )
     try:
-        subprocess.run(
+        subprocess.Popen(
             ["osascript", "-e", script],
-            capture_output=True,
-            timeout=8,
-            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
         )
         return True
     except (OSError, subprocess.SubprocessError):

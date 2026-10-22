@@ -37,8 +37,15 @@ class GlassDialog(QDialog):
         super().__init__(parent)
         self._card_width = width
         self._bg: QPixmap | None = None
+        self._bg_key: tuple | None = None
         self._drag_origin: QPoint | None = None
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
+        flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog
+        if sysutil.IS_MAC or (
+            parent is not None
+            and bool(parent.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
+        ):
+            flags |= Qt.WindowType.WindowStaysOnTopHint
+        self.setWindowFlags(flags)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setModal(True)
         self.setFixedWidth(width + SHADOW * 2)
@@ -64,7 +71,8 @@ class GlassDialog(QDialog):
         return self._card_width
 
     def paintEvent(self, event) -> None:  # noqa: N802
-        if self._bg is None or self._bg.size() != self.size():
+        key = (self.size(), self.devicePixelRatioF())
+        if self._bg is None or self._bg_key != key:
             self._render_bg()
         painter = QPainter(self)
         if self._bg is not None:
@@ -80,9 +88,11 @@ class GlassDialog(QDialog):
         theme.paint_dialog_bg(painter, self.width(), self.height(), SHADOW, 16, 1.0)
         painter.end()
         self._bg = pixmap
+        self._bg_key = (self.size(), dpr)
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         self._bg = None
+        self._bg_key = None
         super().resizeEvent(event)
 
     def showEvent(self, event) -> None:  # noqa: N802
@@ -97,19 +107,40 @@ class GlassDialog(QDialog):
             geo = screen.availableGeometry() if screen is not None else None
             if geo is None:
                 self._bg = None
+                self._bg_key = None
                 return
             x = geo.center().x() - self.width() // 2
             y = geo.center().y() - self.height() // 2
         self.move(x, y)
         self._bg = None
+        self._bg_key = None
+        self.raise_()
+        self.activateWindow()
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
         if event.button() == Qt.MouseButton.LeftButton and event.position().y() < SHADOW + 60:
-            handle = self.windowHandle()
-            if handle is not None:
-                handle.startSystemMove()
-                return
+            if sysutil.IS_WINDOWS:
+                handle = self.windowHandle()
+                if handle is not None and handle.startSystemMove():
+                    return
+            self._drag_origin = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+            return
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:  # noqa: N802
+        if self._drag_origin is not None and (event.buttons() & Qt.MouseButton.LeftButton):
+            self.move(event.globalPosition().toPoint() - self._drag_origin)
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        if event.button() == Qt.MouseButton.LeftButton and self._drag_origin is not None:
+            self._drag_origin = None
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
 
 
 # ----------------------------------------------------------------------
@@ -414,8 +445,10 @@ class SettingsDialog(GlassDialog):
         self._opacity_value.setText(f"{value}%")
 
     def _browse(self) -> None:
+        title = "选择 pku3b.exe" if sysutil.IS_WINDOWS else "选择 pku3b 可执行文件"
+        filt = "可执行文件 (*.exe);;所有文件 (*)" if sysutil.IS_WINDOWS else "所有文件 (*)"
         file_name, _ = QFileDialog.getOpenFileName(
-            self, "选择 pku3b.exe", str(paths.project_root()), "可执行文件 (*.exe);;所有文件 (*)"
+            self, title, str(paths.project_root()), filt
         )
         if file_name:
             self._path_edit.setText(file_name)

@@ -48,6 +48,7 @@ class TrayIcon(QSystemTrayIcon):
         menu.addAction(act_quit)
 
         self._menu = menu
+        self._menu.aboutToShow.connect(self.refresh)
         self.setContextMenu(menu)
         self.activated.connect(self._on_activated)
 

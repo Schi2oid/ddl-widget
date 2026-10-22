@@ -30,8 +30,13 @@ qapp.setStyle("Fusion")
 # 离屏平台不会自动加载系统字体，手动注册以便预览与实机一致
 from PySide6.QtGui import QFontDatabase  # noqa: E402
 
-for _font in ("msyh.ttc", "msyhbd.ttc", "segoeui.ttf", "seguisb.ttf", "SegoeIcons.ttf"):
-    QFontDatabase.addApplicationFont("C:/Windows/Fonts/" + _font)
+if sys.platform.startswith("win"):
+    for _font in ("msyh.ttc", "msyhbd.ttc", "segoeui.ttf", "seguisb.ttf", "SegoeIcons.ttf"):
+        QFontDatabase.addApplicationFont("C:/Windows/Fonts/" + _font)
+elif sys.platform == "darwin":
+    for _font in ("/System/Library/Fonts/PingFang.ttc", "/System/Library/Fonts/HelveticaNeue.ttc"):
+        if Path(_font).exists():
+            QFontDatabase.addApplicationFont(_font)
 
 from ddlwidget import paths  # noqa: E402
 from ddlwidget.briefing import BriefingDialog  # noqa: E402

@@ -228,6 +228,9 @@ class MainWindow(QWidget):
         self._header_count = 0
         self._empty_state = False
         self._bg: QPixmap | None = None
+        self._bg_key: tuple | None = None
+        self._drag_origin: QPoint | None = None
+        self._reveal_grace_until = 0.0
         self._quitting = False
         self._syncing = False
         self._spin = 0.0
@@ -253,12 +256,13 @@ class MainWindow(QWidget):
         self._collapse_timer.setInterval(COLLAPSE_DELAY)
         self._collapse_timer.timeout.connect(self._collapse_now)
 
+        desktop = bool(settings.get("desktop_layer")) and sysutil.supports_desktop_layer()
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.Tool
             | (
                 Qt.WindowType.WindowStaysOnTopHint
-                if settings.get("always_on_top") and not settings.get("desktop_layer")
+                if settings.get("always_on_top") and not desktop
                 else Qt.WindowType(0)
             )
         )
@@ -859,6 +863,9 @@ class MainWindow(QWidget):
         if top:
             flags |= Qt.WindowType.WindowStaysOnTopHint
         self.setWindowFlags(flags)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        if sysutil.IS_MAC:
+            self.setAttribute(Qt.WidgetAttribute.WA_MacAlwaysShowToolWindow, True)
         self.setGeometry(geo)
         if visible:
             self.show()
@@ -1006,8 +1013,12 @@ class MainWindow(QWidget):
         if not self.isVisible():
             self.show()
 
+    def is_effectively_visible(self) -> bool:
+        return self.isVisible() and not self.isMinimized() and not self._collapsed
+
     def bring_to_front(self) -> None:
         """托盘 / 二次启动 唤起窗口。"""
+        self._reveal_grace_until = time.monotonic() + 2.5
         self._restore_window()
         self.reveal_docked()
         self.raise_()
@@ -1063,7 +1074,7 @@ class MainWindow(QWidget):
                 self._move_to_x(self._dock_x(self._edge, True), False)
             return
 
-        if self.geometry().contains(cursor):
+        if self.geometry().contains(cursor) or time.monotonic() < self._reveal_grace_until:
             self._collapse_timer.stop()
         elif not self._animating and not self._collapse_timer.isActive():
             self._collapse_timer.start()
@@ -1082,7 +1093,7 @@ class MainWindow(QWidget):
             self.move(x, y)
 
     def _on_move_settled(self) -> None:
-        if self._animating:
+        if self._animating or self._collapsed:
             return
         if not self._evaluate_edge_dock():
             self._clamp_to_screen()
@@ -1098,7 +1109,8 @@ class MainWindow(QWidget):
     # 事件
     # ==================================================================
     def paintEvent(self, event) -> None:  # noqa: N802
-        if self._bg is None or self._bg.size() != self.size():
+        key = (self.size(), self.devicePixelRatioF())
+        if self._bg is None or self._bg_key != key:
             self._render_bg()
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
@@ -1107,6 +1119,7 @@ class MainWindow(QWidget):
 
     def _invalidate_bg(self) -> None:
         self._bg = None
+        self._bg_key = None
         self.update()
 
     def _render_bg(self) -> None:
@@ -1172,6 +1185,7 @@ class MainWindow(QWidget):
 
         painter.end()
         self._bg = pixmap
+        self._bg_key = (self.size(), dpr)
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         self._invalidate_bg()
@@ -1185,18 +1199,42 @@ class MainWindow(QWidget):
         QTimer.singleShot(0, self._apply_height)
 
     def moveEvent(self, event) -> None:  # noqa: N802
-        if self.isVisible() and not self._animating and not self._save_timer.isActive():
+        if (
+            self.isVisible()
+            and not self._animating
+            and not self._collapsed
+            and self._drag_origin is None
+            and not self._save_timer.isActive()
+        ):
             self._save_timer.start()
         super().moveEvent(event)
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
         if event.button() == Qt.MouseButton.LeftButton:
             if event.position().y() < SHADOW + HEADER_H and not self.settings.get("locked"):
-                handle = self.windowHandle()
-                if handle is not None:
-                    handle.startSystemMove()
-                    return
+                if sysutil.IS_WINDOWS:
+                    handle = self.windowHandle()
+                    if handle is not None and handle.startSystemMove():
+                        return
+                self._drag_origin = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+                event.accept()
+                return
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:  # noqa: N802
+        if self._drag_origin is not None and (event.buttons() & Qt.MouseButton.LeftButton):
+            self.move(event.globalPosition().toPoint() - self._drag_origin)
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        if event.button() == Qt.MouseButton.LeftButton and self._drag_origin is not None:
+            self._drag_origin = None
+            self._on_move_settled()
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
 
     def contextMenuEvent(self, event) -> None:  # noqa: N802
         self._show_menu(event.globalPos())
@@ -1212,12 +1250,15 @@ class MainWindow(QWidget):
         act_lock = menu.addAction("锁定位置")
         act_lock.setCheckable(True)
         act_lock.setChecked(bool(self.settings.get("locked")))
+        desktop_active = bool(self.settings.get("desktop_layer")) and sysutil.supports_desktop_layer()
         act_top = menu.addAction("置顶显示")
         act_top.setCheckable(True)
-        act_top.setChecked(bool(self.settings.get("always_on_top")) and not bool(self.settings.get("desktop_layer")))
-        act_desktop = menu.addAction("贴桌面层（置于底层）")
-        act_desktop.setCheckable(True)
-        act_desktop.setChecked(bool(self.settings.get("desktop_layer")))
+        act_top.setChecked(bool(self.settings.get("always_on_top")) and not desktop_active)
+        act_desktop = None
+        if sysutil.supports_desktop_layer():
+            act_desktop = menu.addAction("贴桌面层（置于底层）")
+            act_desktop.setCheckable(True)
+            act_desktop.setChecked(desktop_active)
         act_done = menu.addAction("显示已完成")
         act_done.setCheckable(True)
         act_done.setChecked(bool(self.settings.get("show_completed")))
@@ -1254,7 +1295,7 @@ class MainWindow(QWidget):
             value = act_top.isChecked()
             self.settings.update({"always_on_top": value, "desktop_layer": False if value else self.settings.get("desktop_layer")})
             self.apply_window_mode()
-        elif chosen is act_desktop:
+        elif act_desktop is not None and chosen is act_desktop:
             value = act_desktop.isChecked()
             self.settings.update({"desktop_layer": value})
             self.apply_window_mode()

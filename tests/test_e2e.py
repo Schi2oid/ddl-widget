@@ -91,25 +91,31 @@ def test_sync_fail() -> None:
 
 
 def test_autostart() -> None:
-    print("[开机自启注册表]")
+    print("[开机自启]")
     original = sysutil.autostart_enabled()
     try:
         ok, message = sysutil.set_autostart(True)
         if not ok:
-            print(f"  skip 当前环境不允许写注册表：{message}")
+            print(f"  skip 当前环境不允许设置开机自启：{message}")
             print(f"       待写入命令: {sysutil.launch_command()}")
             return
         check("写入成功", ok)
         enabled = sysutil.autostart_enabled()
-
-        import winreg
-
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, sysutil.RUN_KEY) as key:
-            value, _ = winreg.QueryValueEx(key, sysutil.RUN_VALUE)
-        print(f"       注册表值: {value}")
         check("写入后已启用", enabled)
-        check("启动命令含 run.pyw", "run.pyw" in value, value)
-        check("启动命令用的是 pythonw", "pythonw" in value.lower(), value)
+
+        if sysutil.IS_WINDOWS:
+            import winreg
+
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, sysutil.RUN_KEY) as key:
+                value, _ = winreg.QueryValueEx(key, sysutil.RUN_VALUE)
+            print(f"       注册表值: {value}")
+            check("启动命令含 run.pyw", "run.pyw" in value, value)
+            check("启动命令用的是 pythonw", "pythonw" in value.lower(), value)
+        elif sysutil.IS_MAC:
+            plist_path = sysutil._launch_agent_path()
+            content = plist_path.read_text(encoding="utf-8") if plist_path.exists() else ""
+            check("LaunchAgent plist 已生成", plist_path.exists(), str(plist_path))
+            check("启动命令含 run.pyw", "run.pyw" in content, content)
 
         sysutil.set_autostart(False)
         check("关闭后已移除", not sysutil.autostart_enabled())

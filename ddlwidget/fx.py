@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 import random
+import sys
 import time
 from dataclasses import dataclass, field
 from typing import Callable
@@ -132,6 +133,8 @@ class FxOverlay(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        if sys.platform == "darwin":
+            self.setAttribute(Qt.WidgetAttribute.WA_MacAlwaysShowToolWindow, True)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
         self._particles: list[Particle] = []
@@ -323,8 +326,9 @@ class FxOverlay(QWidget):
             eased = 1 - (1 - done) ** 3
             x, y = _flyer_pos(f, eased)
             scale = 0.92 - 0.50 * eased
-            width = f.pixmap.width() * scale
-            height = f.pixmap.height() * scale
+            dpr = f.pixmap.devicePixelRatio() or 1.0
+            width = (f.pixmap.width() / dpr) * scale
+            height = (f.pixmap.height() / dpr) * scale
             painter.save()
             painter.setOpacity(1.0 if eased < 0.88 else max(0.0, (1.0 - eased) / 0.12))
             painter.translate(x, y)
